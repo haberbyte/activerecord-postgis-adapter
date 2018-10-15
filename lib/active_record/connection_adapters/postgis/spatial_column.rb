@@ -25,14 +25,16 @@ module ActiveRecord  # :nodoc:
             @srid = 4326
             @has_z = @has_m = false
             build_from_sql_type(sql_type_metadata.sql_type)
-          elsif sql_type =~ /geography|geometry|point|linestring|polygon/i
-            build_from_sql_type(sql_type_metadata.sql_type)
           elsif sql_type_metadata.sql_type =~ /geography|geometry|point|linestring|polygon/i
             # A geometry column with no geometry_columns entry.
             # @geometric_type = geo_type_from_sql_type(sql_type)
             build_from_sql_type(sql_type_metadata.sql_type)
           end
-          super(name, default, sql_type_metadata, null, table_name, default_function, collation, comment: comment)
+          if ActiveRecord::VERSION::MAJOR < 6
+            super(name, default, sql_type_metadata, null, table_name, default_function, collation, comment: comment)
+          else
+            super(name, default, sql_type_metadata, null, default_function, collection: collation, comment: comment)
+          end
           if spatial?
             if @srid
               @limit = { srid: @srid, type: to_type_name(geometric_type) }

@@ -31,15 +31,25 @@ module ActiveRecord  # :nodoc:
         conn_params[:user] = conn_params.delete(:username) if conn_params[:username]
         conn_params[:dbname] = conn_params.delete(:database) if conn_params[:database]
 
-        # Forward only valid config params to PGconn.connect.
+        # Forward only valid config params to PG::Connection.connect.
         valid_conn_param_keys = PG::Connection.conndefaults_hash.keys + [:requiressl]
         conn_params.slice!(*valid_conn_param_keys)
 
-        # The postgres drivers don't allow the creation of an unconnected PGconn object,
-        # so just pass a nil connection object for the time being.
-        ConnectionAdapters::PostGISAdapter.new(nil, logger, conn_params, config)
+        if ActiveRecord::VERSION::MAJOR < 6
+          # The postgres drivers don't allow the creation of an unconnected PGconn object,
+          # so just pass a nil connection object for the time being.
+          ConnectionAdapters::PostGISAdapter.new(nil, logger, conn_params, config)
+        else
+          conn = PG.connect(conn_params)
+          ConnectionAdapters::PostGISAdapter.new(conn, logger, conn_params, config)
+        end
+      rescue ::PG::Error => error
+        if error.message.include?("does not exist")
+          raise ActiveRecord::NoDatabaseError
+        else
+          raise
+        end
       end
-
     end
   end
 end
